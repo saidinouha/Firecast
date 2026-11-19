@@ -1,0 +1,1 @@
+FIRMS_KEY = "0eb1ebd8e74e005432bca6f058ba7be1"
