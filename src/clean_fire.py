@@ -46,6 +46,19 @@ print("After type 0 filter:           ", n_veg)
 print("After dropping low confidence: ", n_conf)
 print("After keeping Tunisia only:    ", len(kept))
 
+
+# Filter 4: remove persistent fixed sources
+# (same ~1 km spot detected on 20+ different days is not a wildfire)
+kept = kept.copy()
+kept["spot"] = kept["latitude"].round(2).astype(str) + "," + kept["longitude"].round(2).astype(str)
+days_per_spot = kept.groupby("spot")["acq_date"].nunique()
+fixed_spots = days_per_spot[days_per_spot >= 20].index
+n_before = len(kept)
+kept = kept[~kept["spot"].isin(fixed_spots)].drop(columns="spot")
+print("Removed as fixed sources:      ", n_before - len(kept))
+print("Final clean detections:        ", len(kept))
+
+
 # Save the clean file (keep only useful columns)
 cols = ["latitude", "longitude", "acq_date", "acq_time", "confidence", "frp", "daynight"]
 kept[cols].to_csv(OUT_DIR / "fires_tunisia_clean.csv", index=False)

@@ -5,13 +5,13 @@
 <br>Clean the fire data(clean_fire.py) (we must install pip install geopandas in terminal first)
 
 
-- [ ] Weather data download
+- [x] Weather data download
 - [ ] Dataset building
 - [ ] EDA and preprocessing
 - [ ] Models and evaluation
 - [ ] Presentation
 
-### step 2 : Fire data download 
+## step 2 : Fire data download 
 
 - explorer firms_2013_2024(explore_fire.py)
 - Clean the fire data(clean_fire.py) (we must install pip install geopandas in terminal first)
@@ -28,3 +28,17 @@ Each cell is identified by integer indices (no floating-point problems), and we�
 Why cells with zero fires matter
 
 Some southern cells may never have a fire. Keeping them is correct, because the model must also learn where fires do not happen. But if there are many all-zero cells, they inflate the “no fire” class without adding information. I’ll show you how to handle this after seeing your numbers.
+
+
+## Step 3: Download the weather (NASA POWER)
+What and why
+
+For each of the 94 cells, we download daily weather for 2013 to 2024 at the cell’s center. These are the features the model learns from. Variables:
+
+Column	Meaning
+T2M, T2M_MAX, T2M_MIN	Mean, max, min temperature at 2 m (°C)
+RH2M	Relative humidity (%)
+WS2M	Wind speed at 2 m (m/s)
+PRECTOTCORR	Rainfall (mm/day)
+
+One request returns the entire 12 years for one cell, so we need only 94 requests. POWER’s native resolution is coarser than 0.5° (about 0.5° latitude × 0.625° longitude), so some neighboring cells may receive identical or nearly identical weather. That’s expected, not a bug.
