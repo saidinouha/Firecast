@@ -46,3 +46,9 @@ One request returns the entire 12 years for one cell, so we need only 94 request
 
 ## Step 4: Build the cell-day dataset
 
+## Step 5: Exploration (EDA)
+What and why
+
+Exploration means looking at the data before modeling. The brief asks for three things here:
+display and interpret the data, visualize with seaborn, and check for outliers.
+This is also where you spot problems before a model hides them.
