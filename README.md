@@ -42,3 +42,7 @@ WS2M	Wind speed at 2 m (m/s)
 PRECTOTCORR	Rainfall (mm/day)
 
 One request returns the entire 12 years for one cell, so we need only 94 requests. POWER’s native resolution is coarser than 0.5° (about 0.5° latitude × 0.625° longitude), so some neighboring cells may receive identical or nearly identical weather. That’s expected, not a bug.
+
+
+## Step 4: Build the cell-day dataset
+
