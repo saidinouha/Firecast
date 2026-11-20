@@ -1,0 +1,9 @@
+{
+  "logreg": {
+    "model__C": 0.01
+  },
+  "rf": {
+    "max_depth": 12,
+    "min_samples_leaf": 100
+  }
+}

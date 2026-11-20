@@ -64,3 +64,30 @@ What and why
 - Importance ranking to complete the feature selection the brief requires.
 - 
 scaling will happen in Step 7 inside a scikit-learn Pipeline, not in this step. That way, during cross-validation the scaler is fitted on each fold’s training part only. It’s the correct way to avoid leakage, and it’s easy.
+
+
+Decision: which features to keep
+
+A simple rule that you can defend in the presentation: keep a feature if it is in the top 12 of at least one method.
+That keeps 13 features and drops four: humidity_7d, rain_log, rain_7d_log, and wind.
+
+## Step 7: Baselines and models
+
+What and why
+
+We train two models and compare them against two trivial rules. The rules answer the question “is the model actually adding anything?”
+
+Model	    Idea
+Baseline A, monthly rate	Score = how often fires happened in that month in the training years. Ignores weather and place.
+Baseline B, fire in last 7 days	Predict “fire tomorrow” if there was a fire in this cell in the last 7 days.
+Logistic Regression;	A weighted sum of the features squeezed into a probability. Simple, readable.
+Random Forest;	Many decision trees that vote. Can capture non-straight-line patterns like seasonality.
+
+
+Key choices:
+
+- class_weight="balanced" makes each rare fire count as much as many non-fires during training, which counters the 64:1 imbalance.
+- GridSearchCV with 4 folds (your teacher’s CV=4) tries each parameter combination and keeps the best. I use TimeSeriesSplit(n_splits=4), so each fold trains on the past and validates on the following period, and the data is already sorted by date. Mention this to your teacher.
+- Scoring is PR-AUC (average_precision), not accuracy. PR-AUC measures how well the model ranks fire days above non-fire days, ignoring any threshold. A random model scores about the positive rate, which is 0.0124 in your test set, so that’s the number to beat.
+- Scaling is inside a Pipeline for Logistic Regression, so the scaler is fitted only on each fold’s training part. Random Forest doesn’t need scaling.
+- The test set is used once, at the end, and never for choosing parameters.
