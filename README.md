@@ -52,3 +52,15 @@ What and why
 Exploration means looking at the data before modeling. The brief asks for three things here:
 display and interpret the data, visualize with seaborn, and check for outliers.
 This is also where you spot problems before a model hides them.
+
+
+## Step 6: Split, transform, select features
+What and why
+
+- Time-based split. Train on 2013 to 2021, test on 2022 to 2024. The model is tested on the “future”, as in real use. A random split would put Monday in training and Tuesday in test, and the test would be too easy.
+- log1p on rain and fire counts.
+- Remove identifier columns. cell_id and date are only labels for rows, and year would let the model memorize a trend that can’t continue into the test years. month is redundant with doy_sin/doy_cos. Location is kept through lat_c and lon_c.
+- Correlation filter, computed on the training years only. If two features have correlation above 0.9, keep one.
+- Importance ranking to complete the feature selection the brief requires.
+- 
+scaling will happen in Step 7 inside a scikit-learn Pipeline, not in this step. That way, during cross-validation the scaler is fitted on each fold’s training part only. It’s the correct way to avoid leakage, and it’s easy.

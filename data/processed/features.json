@@ -1,0 +1,25 @@
+{
+  "features": [
+    "temp_max",
+    "temp_min",
+    "humidity",
+    "humidity_7d",
+    "wind",
+    "rain_log",
+    "rain_7d_log",
+    "rain_30d_log",
+    "fires_today_log",
+    "fires_last3_log",
+    "fires_last7_log",
+    "fires_last30_log",
+    "doy_sin",
+    "doy_cos",
+    "lat_c",
+    "lon_c",
+    "frac_inside"
+  ],
+  "dropped_correlated": {
+    "temp_mean": "temp_max",
+    "temp_7d": "temp_max"
+  }
+}
