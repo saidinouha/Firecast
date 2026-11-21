@@ -74,7 +74,7 @@ lr_pipe = Pipeline([
     ("scale", StandardScaler()),
     ("model", LogisticRegression(class_weight="balanced", max_iter=1000)),
 ])
-lr_search = run_search("logreg", lr_pipe, {"model__C": [0.01, 0.1, 1, 10]}, n_jobs=-1, verbose=1)
+lr_search = run_search("logreg", lr_pipe, {"model__C": [0.001, 0.01, 0.1, 1, 10]}, n_jobs=-1, verbose=1)
 p_lr = lr_search.best_estimator_.predict_proba(X_test)[:, 1]
 results.append(evaluate("Logistic Regression", y_test, p_lr, (p_lr >= 0.5).astype(int)))
 preds["p_logreg"] = p_lr
@@ -82,7 +82,7 @@ preds["p_logreg"] = p_lr
 # ---- Random Forest ----
 rf = RandomForestClassifier(n_estimators=100, class_weight="balanced_subsample",
                             n_jobs=-1, random_state=42)
-rf_grid = {"max_depth": [6, 12], "min_samples_leaf": [20, 100]}
+rf_grid = {"max_depth": [8, 12, 20], "min_samples_leaf": [100, 300]}
 rf_search = run_search("rf", rf, rf_grid, n_jobs=1, verbose=2)
 p_rf = rf_search.best_estimator_.predict_proba(X_test)[:, 1]
 results.append(evaluate("Random Forest", y_test, p_rf, (p_rf >= 0.5).astype(int)))

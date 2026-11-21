@@ -1,6 +1,6 @@
 {
   "logreg": {
-    "model__C": 0.01
+    "model__C": 0.001
   },
   "rf": {
     "max_depth": 12,

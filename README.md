@@ -91,3 +91,52 @@ Key choices:
 - Scoring is PR-AUC (average_precision), not accuracy. PR-AUC measures how well the model ranks fire days above non-fire days, ignoring any threshold. A random model scores about the positive rate, which is 0.0124 in your test set, so that’s the number to beat.
 - Scaling is inside a Pipeline for Logistic Regression, so the scaler is fitted only on each fold’s training part. Random Forest doesn’t need scaling.
 - The test set is used once, at the end, and never for choosing parameters.
+
+
+Step 7 worked: both models are far above the random reference, and every result was measured on the held-out 2022–2024 test years.
+
+What your results tell us
+
+The models learn real signal. A random model scores a PR-AUC of 0.0124 (the test positive rate). Random Forest scores 0.179 (about 14× random) and Logistic Regression 0.160 (about 13×). ROC-AUC is 0.85 to 0.87. Random Forest wins, but only moderately.
+
+I got one prediction wrong. I said Baseline B (fire in the last 7 days) would probably be competitive. On PR-AUC it isn’t: 0.045 against 0.160 and 0.179. There is a caveat, though. Baseline B produces only yes/no answers, so its PR-AUC isn’t directly comparable with the models’ ranking scores. At threshold 0.5 it even has slightly higher precision (8.6% vs 7.1%), but it finds far fewer fires (recall 44% vs 65%). Step 8 adds a fairer baseline that uses the fire count as a continuous score.
+
+The monthly-rate baseline is weak (PR-AUC 0.019). Season alone barely beats random, so the models gain a lot from location and recent fire history.
+
+Precision is low at threshold 0.5, as I predicted. Random Forest flags 11,537 cell-days and only 824 of them have a fire the next day, so about 13 of 14 alarms are “false”. It still finds 824 of the 1,274 fires (recall 65%). I can’t say from this output why so many alarms are wrong. One possibility is that the satellite misses fires (cloud cover, overpass timing), but I haven’t checked that.
+
+Cross-validation scores are higher than test scores (0.246 vs 0.179 for RF). The folds cover different periods than the test, and the test has a lower fire rate (1.24% vs 1.53%). The fold standard deviation of 0.03 shows how much the score moves between periods, so this gap isn’t a sign of a bug.
+
+Tuning changed little. For Logistic Regression, C=0.1, 1, and 10 give identical scores (0.2209), and C=0.01 is better by 0.0003, far inside the 0.03 noise. With 13 features and 300,000 rows, regularization barely matters, and that is a finding you can state. For Random Forest the differences are 0.2408 to 0.2456, also small.
+
+One methodological weakness: the best values sit at the edge of the grids (C=0.01 is the smallest value, and max_depth=12 is the largest). A reviewer could ask whether better values exist just outside. A small extension answers that.
+
+Optional (about 5 minutes): extend the grids
+
+In train_models.py, change these two lines:
+
+````
+python
+
+lr_search = run_search("logreg", lr_pipe, {"model__C": [0.001, 0.01, 0.1, 1, 10]}, n_jobs=-1, verbose=1)
+````
+
+````
+python
+
+rf_grid = {"max_depth": [8, 12, 20], "min_samples_leaf": [100, 300]}
+````
+Then rerun it. It will take longer, since there are 6 combinations and deeper trees. The script overwrites best_params.json and the predictions, and Step 8 reads those files. If it shows the same winners, you can say the optimum is not at a boundary. If you skip this, Step 8 still works.
+
+
+## Step 8a: Evaluation
+What and why
+
+The brief asks for confusion matrices and summary tables. We also fix the threshold problem: 0.5 is arbitrary, and the models were trained with class weights, so it isn’t a sensible cut-off.
+
+Choosing the threshold without cheating: the threshold must not be picked on the test set, or the test results would be optimistic. We pick it on out-of-fold predictions from the training years (each fold’s validation part, predicted by a model that didn’t see it), choosing the value that maximizes F1. F1 balances precision and recall, which is a neutral choice. A real fire service might prefer higher recall, and you can say so in the presentation. Then we apply that threshold to the test set once. Small approximation: the fold models are trained on less data than the final model, so their scores are slightly different.
+
+The script also adds a continuous baseline (the 30-day fire count used as a score) and the test results per year.
+
+
+there is a mistake in the first code , there is also the correction bellow , correct it befor running it 
