@@ -140,3 +140,17 @@ The script also adds a continuous baseline (the 30-day fire count used as a scor
 
 
 there is a mistake in the first code , there is also the correction bellow , correct it befor running it 
+
+
+Step 8b: Ablation study
+What and why
+
+An ablation removes one group of features at a time and measures how much the score drops. It answers the question your teacher will most likely ask: “what is your model actually using?” Our 13 features fall into four groups:
+
+Group	Features
+Fire history	fires_today_log, fires_last3_log, fires_last7_log, fires_last30_log
+Location	lat_c, lon_c, frac_inside
+Season	doy_sin, doy_cos
+Weather	temp_max, temp_min, humidity, rain_30d_log
+
+We keep the best parameters fixed (no re-tuning), so the comparison is fast and only the features change.
