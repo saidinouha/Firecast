@@ -2,7 +2,9 @@
 
 **Prédiction de l'occurrence d'incendies de végétation en Tunisie à partir de détections satellitaires (NASA FIRMS) et de données météorologiques (NASA POWER).**
 
-Projet de Machine Learning, LSI 3. Auteurs : [Prénom Nom] et [Prénom Nom du binôme].
+Projet de Machine Learning, LSI 3. Auteurs : Saidi Nouha  et Maymana Amara.
+
+![Carte de risque prédite](results/figures/risk_map_peak.png)
 
 ## 1. Problème
 
