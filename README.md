@@ -1,156 +1,106 @@
-## Progress
-- [x] Setup
-- [x] Fire data download
-<br>explorer firms_2013_2024(explore_fire.py)
-<br>Clean the fire data(clean_fire.py) (we must install pip install geopandas in terminal first)
+# FireCast Tunisie
+
+**Prédiction de l'occurrence d'incendies de végétation en Tunisie à partir de détections satellitaires (NASA FIRMS) et de données météorologiques (NASA POWER).**
+
+Projet de Machine Learning, LSI 3. Auteurs : [Prénom Nom] et [Prénom Nom du binôme].
+
+## 1. Problème
+
+Question posée : *y aura-t-il au moins une détection satellitaire de feu demain dans cette cellule de 50 km ?*
+
+- Type de tâche : apprentissage **supervisé**, **classification binaire** (`fire_tomorrow` = 1 ou 0).
+- Unité d'observation : une cellule de grille (0,5° soit environ 50 km) un jour donné. Il y a 94 cellules couvrant la Tunisie.
+- Les étiquettes proviennent des détections satellitaires, les variables explicatives de la météo, de l'historique de feux, de la saison et de la position.
+
+## 2. Données
+
+| Source | Contenu | Utilisation |
+|---|---|---|
+| NASA FIRMS (VIIRS SNPP, 375 m) | Détections de feux 2013-2024 | Étiquettes et historique de feux |
+| NASA POWER | Température, humidité, vent, pluie quotidiens par cellule | Variables météo |
+
+**Nettoyage des détections** (167 763 → 16 684) :
+1. Conservation des feux de végétation uniquement (`type = 0`) : 50 138.
+2. Suppression des détections de faible confiance : 44 079.
+3. Conservation des points situés en Tunisie (frontières Natural Earth) : 22 853.
+4. Suppression des sources fixes (même point de 1 km détecté sur 20 jours différents ou plus, par exemple torchères ou sites industriels) : 16 684.
+
+**Jeu de données final** : `data/processed/firecast_dataset.csv.gz`, 409 182 lignes (94 cellules × 4 353 jours, du 2013-01-30 au 2024-12-30), 24 colonnes, 1,46 % de jours positifs.
+Le fichier se lit directement avec `pandas.read_csv("firecast_dataset.csv.gz")`.
+
+**Règle anti-fuite** : une ligne du jour D n'utilise que des informations du jour D ou antérieures. Seule l'étiquette regarde le jour D+1.
+
+## 3. Méthodologie
+
+- **Exploration** : déséquilibre des classes, saisonnalité, boîtes à moustaches, corrélations, valeurs aberrantes (la règle IQR est trompeuse pour la pluie, variable à zéros dominants : transformation `log1p` plutôt que suppression).
+- **Découpage temporel** : entraînement 2013-2021 (306 252 lignes), test 2022-2024 (102 930 lignes). Aucun mélange aléatoire.
+- **Sélection de variables** : filtre de corrélation (> 0,9), importance Random Forest et information mutuelle, calculés sur l'entraînement seulement. 13 variables retenues.
+- **Modèles** : Régression logistique et Random Forest, avec `class_weight` pour le déséquilibre (environ 64 jours sans feu pour 1 avec feu).
+- **Réglage** : `GridSearchCV` avec `TimeSeriesSplit(n_splits=4)`, score = PR-AUC (précision moyenne).
+- **Seuil de décision** : choisi sur des prédictions hors échantillon de l'entraînement, jamais sur le test.
+- **Références** : taux mensuel, présence d'un feu dans les 7 derniers jours, nombre de feux des 30 derniers jours.
+- **Ablation** : retrait de groupes de variables (historique de feux, position, météo, saison).
+
+## 4. Résultats (années de test 2022-2024)
+
+| Modèle | PR-AUC | ROC-AUC | Précision | Rappel | F1 |
+|---|---|---|---|---|---|
+| Modèle aléatoire | 0,012 | 0,500 | n/a | n/a | n/a |
+| Référence A : taux mensuel | 0,019 | 0,645 | n/a | n/a | n/a |
+| Référence B' : nombre de feux sur 30 jours | 0,112 | 0,793 | n/a | n/a | n/a |
+| Régression Logistique (seuil 0,92) | 0,161 | 0,852 | 0,217 | 0,269 | 0,241 |
+| **Random Forest (seuil 0,90)** | **0,179** | **0,874** | 0,251 | 0,249 | 0,250 |
+
+Hyperparamètres retenus : Régression Logistique `C = 0,001` ; Random Forest `max_depth = 12`, `min_samples_leaf = 100`, 100 arbres.
+
+**Conclusions**
+- Les modèles classent les jours à risque environ 14 fois mieux que le hasard.
+- L'ablation montre que la majeure partie de la performance vient de l'historique récent de feux et de la position. Dans ce montage, la météo quotidienne apporte peu.
+
+**Limites** : météo grossière (cellules d'environ 50 km), pas de données de végétation ni de sécheresse du combustible, détections satellitaires incomplètes (nuages, passages) et incluant des brûlages agricoles, performance en baisse en 2023-2024 sans cause identifiée. Les scores du modèle ne sont pas des probabilités calibrées.
+
+## 5. Structure du dépôt
+
+```
+FireCast/
+├── README.md
+├── requirements.txt
+├── data/processed/
+│   ├── firecast_dataset.csv.gz     <- jeu de données final
+│   ├── fires_tunisia_clean.csv     <- détections nettoyées
+│   ├── grid_cells.csv              <- les 94 cellules
+│   ├── train.csv.gz, test.csv.gz   <- découpage temporel
+│   └── features.json, selected_features.json
+├── src/
+│   ├── demo.py                     <- démonstration rapide (voir section 6)
+│   ├── download_firms.py, clean_fires.py, build_grid.py
+│   ├── download_power.py, build_dataset.py, check_label.py
+│   ├── explore_dataset.py, check_hotspots.py, check_rain.py
+│   ├── prepare_data.py, select_features.py, finalize_features.py
+│   ├── train_models.py, evaluate_models.py, ablation.py, risk_map.py
+│   └── config_example.py
+└── results/
+    ├── figures/                    <- graphiques
+    ├── tables/                     <- tableaux de résultats
+    └── best_params.json, thresholds.json, feature_ranking.csv
+```
 
 
-- [x] Weather data download
-- [ ] Dataset building
-- [ ] EDA and preprocessing
-- [ ] Models and evaluation
-- [ ] Presentation
 
-## step 2 : Fire data download 
+## 6. Reproduire toutes les étapes
 
-- explorer firms_2013_2024(explore_fire.py)
-- Clean the fire data(clean_fire.py) (we must install pip install geopandas in terminal first)
-- Check for persistent hotspots : 
-    <br> A real vegetation fire burns for a day or two and moves on. A fixed source keeps showing up at the same location. We count, for each ~1 km spot, on how many different days it was detected.
-    <br> (check_hotspots)
-- 
-### Define the grid cells
-(build_grid.py)
-The model predicts per zone, so we divide Tunisia into square cells of 0.5° (about 50 km). Each row of the final dataset will be one cell on one day. I chose 0.5° for two reasons: it gives enough fires per cell to learn from, and NASA POWER’s weather data has about 0.5° resolution, so a finer grid wouldn’t give more weather detail.
+**À partir du jeu de données final** (aucune clé nécessaire) :
 
-Each cell is identified by integer indices (no floating-point problems), and we’ll download the weather at each cell’s center.
-
-Why cells with zero fires matter
-
-Some southern cells may never have a fire. Keeping them is correct, because the model must also learn where fires do not happen. But if there are many all-zero cells, they inflate the “no fire” class without adding information. I’ll show you how to handle this after seeing your numbers.
+```bash
+python src/prepare_data.py       # découpage temporel, log1p, filtre de corrélation
+python src/select_features.py    # classement des variables
+python src/finalize_features.py  # 13 variables retenues
+python src/train_models.py       # références + 2 modèles, GridSearchCV (CV = 4), quelques minutes
+python src/evaluate_models.py    # seuils, matrices de confusion, courbes PR
+python src/ablation.py           # étude d'ablation
+```
 
 
-## Step 3: Download the weather (NASA POWER)
-What and why
+Exécuter dans l'ordre : `download_firms.py`, `clean_fires.py`, `build_grid.py`, `download_power.py`, `build_dataset.py`, puis `check_label.py` pour vérifier les étiquettes.
 
-For each of the 94 cells, we download daily weather for 2013 to 2024 at the cell’s center. These are the features the model learns from. Variables:
-
-Column	Meaning
-T2M, T2M_MAX, T2M_MIN	Mean, max, min temperature at 2 m (°C)
-RH2M	Relative humidity (%)
-WS2M	Wind speed at 2 m (m/s)
-PRECTOTCORR	Rainfall (mm/day)
-
-One request returns the entire 12 years for one cell, so we need only 94 requests. POWER’s native resolution is coarser than 0.5° (about 0.5° latitude × 0.625° longitude), so some neighboring cells may receive identical or nearly identical weather. That’s expected, not a bug.
-
-
-## Step 4: Build the cell-day dataset
-
-## Step 5: Exploration (EDA)
-What and why
-
-Exploration means looking at the data before modeling. The brief asks for three things here:
-display and interpret the data, visualize with seaborn, and check for outliers.
-This is also where you spot problems before a model hides them.
-
-
-## Step 6: Split, transform, select features
-What and why
-
-- Time-based split. Train on 2013 to 2021, test on 2022 to 2024. The model is tested on the “future”, as in real use. A random split would put Monday in training and Tuesday in test, and the test would be too easy.
-- log1p on rain and fire counts.
-- Remove identifier columns. cell_id and date are only labels for rows, and year would let the model memorize a trend that can’t continue into the test years. month is redundant with doy_sin/doy_cos. Location is kept through lat_c and lon_c.
-- Correlation filter, computed on the training years only. If two features have correlation above 0.9, keep one.
-- Importance ranking to complete the feature selection the brief requires.
-- 
-scaling will happen in Step 7 inside a scikit-learn Pipeline, not in this step. That way, during cross-validation the scaler is fitted on each fold’s training part only. It’s the correct way to avoid leakage, and it’s easy.
-
-
-Decision: which features to keep
-
-A simple rule that you can defend in the presentation: keep a feature if it is in the top 12 of at least one method.
-That keeps 13 features and drops four: humidity_7d, rain_log, rain_7d_log, and wind.
-
-## Step 7: Baselines and models
-
-What and why
-
-We train two models and compare them against two trivial rules. The rules answer the question “is the model actually adding anything?”
-
-Model	    Idea
-Baseline A, monthly rate	Score = how often fires happened in that month in the training years. Ignores weather and place.
-Baseline B, fire in last 7 days	Predict “fire tomorrow” if there was a fire in this cell in the last 7 days.
-Logistic Regression;	A weighted sum of the features squeezed into a probability. Simple, readable.
-Random Forest;	Many decision trees that vote. Can capture non-straight-line patterns like seasonality.
-
-
-Key choices:
-
-- class_weight="balanced" makes each rare fire count as much as many non-fires during training, which counters the 64:1 imbalance.
-- GridSearchCV with 4 folds (your teacher’s CV=4) tries each parameter combination and keeps the best. I use TimeSeriesSplit(n_splits=4), so each fold trains on the past and validates on the following period, and the data is already sorted by date. Mention this to your teacher.
-- Scoring is PR-AUC (average_precision), not accuracy. PR-AUC measures how well the model ranks fire days above non-fire days, ignoring any threshold. A random model scores about the positive rate, which is 0.0124 in your test set, so that’s the number to beat.
-- Scaling is inside a Pipeline for Logistic Regression, so the scaler is fitted only on each fold’s training part. Random Forest doesn’t need scaling.
-- The test set is used once, at the end, and never for choosing parameters.
-
-
-Step 7 worked: both models are far above the random reference, and every result was measured on the held-out 2022–2024 test years.
-
-What your results tell us
-
-The models learn real signal. A random model scores a PR-AUC of 0.0124 (the test positive rate). Random Forest scores 0.179 (about 14× random) and Logistic Regression 0.160 (about 13×). ROC-AUC is 0.85 to 0.87. Random Forest wins, but only moderately.
-
-I got one prediction wrong. I said Baseline B (fire in the last 7 days) would probably be competitive. On PR-AUC it isn’t: 0.045 against 0.160 and 0.179. There is a caveat, though. Baseline B produces only yes/no answers, so its PR-AUC isn’t directly comparable with the models’ ranking scores. At threshold 0.5 it even has slightly higher precision (8.6% vs 7.1%), but it finds far fewer fires (recall 44% vs 65%). Step 8 adds a fairer baseline that uses the fire count as a continuous score.
-
-The monthly-rate baseline is weak (PR-AUC 0.019). Season alone barely beats random, so the models gain a lot from location and recent fire history.
-
-Precision is low at threshold 0.5, as I predicted. Random Forest flags 11,537 cell-days and only 824 of them have a fire the next day, so about 13 of 14 alarms are “false”. It still finds 824 of the 1,274 fires (recall 65%). I can’t say from this output why so many alarms are wrong. One possibility is that the satellite misses fires (cloud cover, overpass timing), but I haven’t checked that.
-
-Cross-validation scores are higher than test scores (0.246 vs 0.179 for RF). The folds cover different periods than the test, and the test has a lower fire rate (1.24% vs 1.53%). The fold standard deviation of 0.03 shows how much the score moves between periods, so this gap isn’t a sign of a bug.
-
-Tuning changed little. For Logistic Regression, C=0.1, 1, and 10 give identical scores (0.2209), and C=0.01 is better by 0.0003, far inside the 0.03 noise. With 13 features and 300,000 rows, regularization barely matters, and that is a finding you can state. For Random Forest the differences are 0.2408 to 0.2456, also small.
-
-One methodological weakness: the best values sit at the edge of the grids (C=0.01 is the smallest value, and max_depth=12 is the largest). A reviewer could ask whether better values exist just outside. A small extension answers that.
-
-Optional (about 5 minutes): extend the grids
-
-In train_models.py, change these two lines:
-
-````
-python
-
-lr_search = run_search("logreg", lr_pipe, {"model__C": [0.001, 0.01, 0.1, 1, 10]}, n_jobs=-1, verbose=1)
-````
-
-````
-python
-
-rf_grid = {"max_depth": [8, 12, 20], "min_samples_leaf": [100, 300]}
-````
-Then rerun it. It will take longer, since there are 6 combinations and deeper trees. The script overwrites best_params.json and the predictions, and Step 8 reads those files. If it shows the same winners, you can say the optimum is not at a boundary. If you skip this, Step 8 still works.
-
-
-## Step 8a: Evaluation
-What and why
-
-The brief asks for confusion matrices and summary tables. We also fix the threshold problem: 0.5 is arbitrary, and the models were trained with class weights, so it isn’t a sensible cut-off.
-
-Choosing the threshold without cheating: the threshold must not be picked on the test set, or the test results would be optimistic. We pick it on out-of-fold predictions from the training years (each fold’s validation part, predicted by a model that didn’t see it), choosing the value that maximizes F1. F1 balances precision and recall, which is a neutral choice. A real fire service might prefer higher recall, and you can say so in the presentation. Then we apply that threshold to the test set once. Small approximation: the fold models are trained on less data than the final model, so their scores are slightly different.
-
-The script also adds a continuous baseline (the 30-day fire count used as a score) and the test results per year.
-
-
-there is a mistake in the first code , there is also the correction bellow , correct it befor running it 
-
-
-Step 8b: Ablation study
-What and why
-
-An ablation removes one group of features at a time and measures how much the score drops. It answers the question your teacher will most likely ask: “what is your model actually using?” Our 13 features fall into four groups:
-
-Group	Features
-Fire history	fires_today_log, fires_last3_log, fires_last7_log, fires_last30_log
-Location	lat_c, lon_c, frac_inside
-Season	doy_sin, doy_cos
-Weather	temp_max, temp_min, humidity, rain_30d_log
-
-We keep the best parameters fixed (no re-tuning), so the comparison is fast and only the features change.
+Les exécutions se font depuis la racine du projet. Les fichiers bruts (`data/raw/`) et les modèles enregistrés (`results/models/`) ne sont pas versionnés car volumineux.
